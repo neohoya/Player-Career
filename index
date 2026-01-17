@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wolf Tooth: Player Career (Demo Ver)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;700;900&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background-color: #050505; color: #fff; margin: 0; min-height: 100vh; overflow-x: hidden; }
+        .fotmob-card { background: #111; border: 1px solid #222; border-radius: 12px; }
+        .wolves-gold { color: #fdb913; }
+        .bg-wolves { background-color: #fdb913; }
+        .stat-label { color: #888; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .stat-value { font-size: 14px; font-weight: 800; }
+        .active-tab { color: #fdb913; border-bottom: 2px solid #fdb913; }
+        .history-dot { width: 8px; height: 8px; background: #fdb913; border-radius: 50%; position: relative; z-index: 10; }
+        .history-line { position: absolute; left: 3px; top: 10px; bottom: -20px; width: 2px; background: #222; z-index: 1; }
+        .progress-bar { height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #fdb913; transition: width 0.5s; }
+        .stat-btn { background: #222; border: 1px solid #333; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #fdb913; transition: 0.2s; }
+        .stat-btn:hover { background: #fdb913; color: #000; }
+        .animate-ui { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+        .team-bar { height: 4px; border-radius: 2px; background: #333; flex-grow: 1; position: relative; }
+        .team-bar-fill { position: absolute; height: 100%; background: #fdb913; border-radius: 2px; }
+        
+        .creation-input { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; width: 100%; color: white; font-weight: 700; font-size: 14px; margin-top: 4px; }
+        .creation-input:focus { border-color: #fdb913; outline: none; }
+
+        .intro-title { font-size: 4rem; font-weight: 900; letter-spacing: -0.05em; line-height: 0.9; }
+        
+        .scrollable-table { max-height: 300px; overflow-y: auto; }
+        .scrollable-table::-webkit-scrollbar { width: 6px; }
+        .scrollable-table::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 3px; }
+        .scrollable-table::-webkit-scrollbar-thumb { background: #fdb913; border-radius: 3px; }
+        
+        .team-name { 
+            display: inline-block;
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .team-name:hover {
+            overflow: visible;
+            white-space: normal;
+            z-index: 10;
+            position: relative;
+            background: #111;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        // --- [1. REALISTIC PL DATA & SCHEDULE] ---
+        const teamSquads = {
+            "North London R": { strikers: ["K. Havertz", "B. Saka", "L. Trossard"], mids: ["M. Odegaard", "D. Rice", "G. Martinelli"], strength: 92 },
+            "Manchester B": { strikers: ["E. Haaland", "P. Foden", "J. Doku"], mids: ["K. De Bruyne", "Rodri", "B. Silva"], strength: 91 },
+            "Birmingham V": { strikers: ["O. Watkins", "L. Bailey"], mids: ["J. McGinn", "Y. Tielemans"], strength: 85 },
+            "Merseyside R": { strikers: ["M. Salah", "D. Nunez", "L. Diaz"], mids: ["A. Mac Allister", "D. Szoboszlai", "C. Gakpo"], strength: 89 },
+            "Brent FC": { strikers: ["B. Mbeumo", "Y. Wissa"], mids: ["M. Jensen", "C. Norgaard"], strength: 80 },
+            "Newcastle U": { strikers: ["A. Isak", "A. Gordon"], mids: ["B. Guimaraes", "Joelinton"], strength: 84 },
+            "Manchester R": { strikers: ["R. Hojlund", "M. Rashford"], mids: ["B. Fernandes", "K. Mainoo"], strength: 82 },
+            "West London B": { strikers: ["N. Jackson", "C. Palmer"], mids: ["E. Fernandez", "M. Caicedo"], strength: 83 },
+            "Fulham FC": { strikers: ["R. Jimenez", "A. Iwobi"], mids: ["A. Pereira", "E. Smith Rowe"], strength: 78 },
+            "Brighton FC": { strikers: ["D. Welbeck", "J. Pedro"], mids: ["K. Mitoma", "S. Adingra"], strength: 79 },
+            "Everton FC": { strikers: ["D. Calvert-Lewin", "D. McNeil"], mids: ["A. Doucoure", "I. Gueye"], strength: 75 },
+            "Crystal FC": { strikers: ["J.P. Mateta", "E. Eze"], mids: ["A. Wharton", "J. Lerma"], strength: 76 },
+            "North London W": { strikers: ["H.M. Son", "Richarlison", "B. Johnson"], mids: ["J. Maddison", "D. Kulusevski"], strength: 81 },
+            "Bournemouth FC": { strikers: ["Evanilson", "A. Semenyo"], mids: ["M. Tavernier", "R. Christie"], strength: 74 },
+            "Nottingham F": { strikers: ["C. Wood", "T. Awoniyi"], mids: ["M. Gibbs-White", "C. Hudson-Odoi"], strength: 75 },
+            "West Ham FC": { strikers: ["J. Bowen", "M. Antonio"], mids: ["L. Paqueta", "M. Kudus"], strength: 77 },
+            "Leicester FC": { strikers: ["J. Vardy", "S. Mavididi"], mids: ["H. Winks", "W. Ndidi"], strength: 72 },
+            "Ipswich FC": { strikers: ["L. Delap", "O. Hutchinson"], mids: ["S. Morsy", "K. Phillips"], strength: 70 },
+            "Southampton FC": { strikers: ["A. Armstrong", "B. Brereton"], mids: ["J. Aribo", "M. Fernandes"], strength: 69 },
+            "Wolves": { strikers: ["H.C. Hwang", "M. Cunha"], mids: ["M. Lemina", "J. Gomes"], strength: 71 }
+        };
+
+        function generatePLSchedule(baseYear = 2025) {
+            const teams = Object.keys(teamSquads).filter(t => t !== "Wolves");
+            const shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+            let schedule = [];
+            let matchDate = new Date(`${baseYear}-08-08`);
+            shuffledTeams.forEach((team, idx) => {
+                let d = new Date(matchDate);
+                d.setDate(d.getDate() + (idx * 7) + Math.floor(Math.random() * 3));
+                schedule.push({ round: idx + 1, opponent: team, isHome: Math.random() > 0.5, date: d });
+            });
+            shuffledTeams.forEach((team, idx) => {
+                let d = new Date(matchDate);
+                d.setDate(d.getDate() + ((idx + 19) * 7) + Math.floor(Math.random() * 3));
+                const firstLeg = schedule[idx];
+                schedule.push({ round: idx + 20, opponent: team, isHome: !firstLeg.isHome, date: d });
+            });
+            return schedule;
+        }
+
+        function simulateMatch(homeTeam, awayTeam, isWolvesMatch = false, playerImpact = 0) {
+            const homeStr = teamSquads[homeTeam].strength;
+            const awayStr = teamSquads[awayTeam].strength;
+            const homeAdv = 3;
+            
+            let homeChance = (homeStr + homeAdv) / (homeStr + awayStr + homeAdv);
+            let awayChance = 1 - homeChance;
+            
+            if (isWolvesMatch && homeTeam === "Wolves") {
+                homeChance += playerImpact * 0.08;
+            } else if (isWolvesMatch && awayTeam === "Wolves") {
+                awayChance += playerImpact * 0.08;
+            }
+            
+            const rand = Math.random();
+            let homeGoals, awayGoals;
+            
+            if (rand < homeChance * 0.5) {
+                homeGoals = Math.floor(Math.random() * 2) + 2;
+                awayGoals = Math.floor(Math.random() * 2);
+            } else if (rand < homeChance * 0.75) {
+                homeGoals = Math.floor(Math.random() * 2) + 1;
+                awayGoals = Math.floor(Math.random() * 2);
+            } else if (rand < homeChance) {
+                homeGoals = 1;
+                awayGoals = 1;
+            } else if (rand < homeChance + awayChance * 0.5) {
+                awayGoals = Math.floor(Math.random() * 2) + 2;
+                homeGoals = Math.floor(Math.random() * 2);
+            } else {
+                awayGoals = Math.floor(Math.random() * 2) + 1;
+                homeGoals = Math.floor(Math.random() * 2);
+            }
+            
+            return { homeGoals, awayGoals };
+        }
+
+        function simulateFullLeague(currentRound, wolvesResults) {
+            const allTeams = Object.keys(teamSquads);
+            const leagueTable = {};
+            const playerStats = {};
+            
+            allTeams.forEach(team => {
+                leagueTable[team] = {
+                    played: 0, won: 0, drawn: 0, lost: 0,
+                    gf: 0, ga: 0, gd: 0, points: 0,
+                    form: []
+                };
+                
+                const squad = teamSquads[team];
+                [...squad.strikers, ...squad.mids].forEach(player => {
+                    playerStats[player] = {
+                        team: team,
+                        goals: 0,
+                        assists: 0,
+                        appearances: 0,
+                        totalRating: 0
+                    };
+                });
+            });
+            
+            if (state.player.name) {
+                playerStats[state.player.name] = {
+                    team: "Wolves",
+                    goals: 0,
+                    assists: 0,
+                    appearances: 0,
+                    totalRating: 0
+                };
+            }
+            
+            for (let round = 1; round < currentRound; round++) {
+                const roundMatches = [];
+                const teamsThisRound = new Set();
+                
+                allTeams.forEach(team => {
+                    if (teamsThisRound.has(team)) return;
+                    
+                    let opponent;
+                    do {
+                        opponent = allTeams[Math.floor(Math.random() * allTeams.length)];
+                    } while (opponent === team || teamsThisRound.has(opponent));
+                    
+                    teamsThisRound.add(team);
+                    teamsThisRound.add(opponent);
+                    
+                    const isHome = Math.random() > 0.5;
+                    const homeTeam = isHome ? team : opponent;
+                    const awayTeam = isHome ? opponent : team;
+                    
+                    roundMatches.push({ homeTeam, awayTeam });
+                });
+                
+                roundMatches.forEach(match => {
+                    let result;
+                    
+                    if (match.homeTeam === "Wolves" || match.awayTeam === "Wolves") {
+                        const wolvesResult = wolvesResults.find(r => r.round === round);
+                        if (wolvesResult) {
+                            result = wolvesResult.isHome === (match.homeTeam === "Wolves")
+                                ? { homeGoals: wolvesResult.wolvesGoals, awayGoals: wolvesResult.oppGoals }
+                                : { homeGoals: wolvesResult.oppGoals, awayGoals: wolvesResult.wolvesGoals };
+                        } else {
+                            result = simulateMatch(match.homeTeam, match.awayTeam);
+                        }
+                    } else {
+                        result = simulateMatch(match.homeTeam, match.awayTeam);
+                    }
+                    
+                    updateTable(leagueTable, match.homeTeam, match.awayTeam, result.homeGoals, result.awayGoals, true);
+                    
+                    const homeSquad = teamSquads[match.homeTeam];
+                    const awaySquad = teamSquads[match.awayTeam];
+                    
+                    for (let i = 0; i < result.homeGoals; i++) {
+                        let scorer;
+                        if (match.homeTeam === "Wolves" && state.player.name && Math.random() < 0.25) {
+                            scorer = state.player.name;
+                        } else {
+                            scorer = homeSquad.strikers[Math.floor(Math.random() * homeSquad.strikers.length)];
+                        }
+                        if (playerStats[scorer]) {
+                            playerStats[scorer].goals++;
+                            playerStats[scorer].appearances++;
+                            playerStats[scorer].totalRating += 7.0 + Math.random() * 2.5;
+                        }
+                    }
+                    
+                    for (let i = 0; i < result.awayGoals; i++) {
+                        let scorer;
+                        if (match.awayTeam === "Wolves" && state.player.name && Math.random() < 0.25) {
+                            scorer = state.player.name;
+                        } else {
+                            scorer = awaySquad.strikers[Math.floor(Math.random() * awaySquad.strikers.length)];
+                        }
+                        if (playerStats[scorer]) {
+                            playerStats[scorer].goals++;
+                            playerStats[scorer].appearances++;
+                            playerStats[scorer].totalRating += 7.0 + Math.random() * 2.5;
+                        }
+                    }
+                });
+            }
+            
+            if (state.player.name && playerStats[state.player.name]) {
+                playerStats[state.player.name].goals = state.player.seasonStats.goals;
+                playerStats[state.player.name].assists = state.player.seasonStats.assists;
+                playerStats[state.player.name].appearances = state.player.seasonStats.appearances;
+                playerStats[state.player.name].totalRating = state.player.seasonStats.totalRating;
+            }
+            
+            const sortedTable = Object.entries(leagueTable).map(([team, stats]) => ({
+                team,
+                ...stats
+            })).sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                if (b.gd !== a.gd) return b.gd - a.gd;
+                return b.gf - a.gf;
+            });
+            
+            const topScorers = Object.entries(playerStats)
+                .filter(([name, stats]) => stats.goals > 0)
+                .sort((a, b) => b[1].goals - a[1].goals)
+                .slice(0, 5)
+                .map(([name, stats]) => ({ name, ...stats }));
+            
+            const topRated = Object.entries(playerStats)
+                .filter(([name, stats]) => stats.appearances > 0)
+                .map(([name, stats]) => ({
+                    name,
+                    team: stats.team,
+                    rating: (stats.totalRating / stats.appearances).toFixed(2),
+                    appearances: stats.appearances
+                }))
+                .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating))
+                .slice(0, 5);
+            
+            state.topScorers = topScorers;
+            state.topRated = topRated;
+            
+            return sortedTable;
+        }
+
+        function updateTable(table, homeTeam, awayTeam, homeGoals, awayGoals, updateForm) {
+            table[homeTeam].played++;
+            table[awayTeam].played++;
+            table[homeTeam].gf += homeGoals;
+            table[homeTeam].ga += awayGoals;
+            table[awayTeam].gf += awayGoals;
+            table[awayTeam].ga += homeGoals;
+            
+            if (homeGoals > awayGoals) {
+                table[homeTeam].won++;
+                table[awayTeam].lost++;
+                table[homeTeam].points += 3;
+                if (updateForm) {
+                    table[homeTeam].form.push('W');
+                    table[awayTeam].form.push('L');
+                }
+            } else if (homeGoals < awayGoals) {
+                table[awayTeam].won++;
+                table[homeTeam].lost++;
+                table[awayTeam].points += 3;
+                if (updateForm) {
+                    table[homeTeam].form.push('L');
+                    table[awayTeam].form.push('W');
+                }
+            } else {
+                table[homeTeam].drawn++;
+                table[awayTeam].drawn++;
+                table[homeTeam].points++;
+                table[awayTeam].points++;
+                if (updateForm) {
+                    table[homeTeam].form.push('D');
+                    table[awayTeam].form.push('D');
+                }
+            }
+            
+            table[homeTeam].gd = table[homeTeam].gf - table[homeTeam].ga;
+            table[awayTeam].gd = table[awayTeam].gf - table[awayTeam].ga;
+            
+            if (updateForm) {
+                if (table[homeTeam].form.length > 5) table[homeTeam].form.shift();
+                if (table[awayTeam].form.length > 5) table[awayTeam].form.shift();
+            }
+        }
+
+        function getGrowthMultiplier(age) {
+            if (age <= 21) return 0.9;
+            if (age <= 24) return 0.6;
+            if (age <= 30) return 0.3;
+            return -0.15;
+        }
+
+        function generateSNSReactions(matchData) {
+            const reactions = [];
+            const { myRating, myGoals, myAssists, score, opponent } = matchData;
+            const [wolvesScore, oppScore] = score.split(' - ').map(Number);
+            const won = wolvesScore > oppScore;
+            const lost = wolvesScore < oppScore;
+            
+            if (currentLang === 'ko') {
+                if (myRating >= 9.0) {
+                    reactions.push(`🔥 ${state.player.name} 완전 미쳤다!! 이게 프리미어리그 맞나? 평점 ${myRating}!`);
+                } else if (myRating >= 8.0) {
+                    reactions.push(`👏 ${state.player.name} 오늘 진짜 잘했다. ${myGoals}골 ${myAssists}도움 최고야!`);
+                } else if (myRating < 6.0) {
+                    reactions.push(`😤 ${state.player.name} 오늘 뭐했음? 평점 ${myRating}... 벤치 가야되는거 아님?`);
+                }
+                
+                if (won) {
+                    reactions.push(`💛🖤 ${opponent} 격파! ${score} 승리! WOLVES 올라온다!`);
+                    if (myGoals >= 2) {
+                        reactions.push(`⚽⚽ ${state.player.name} 멀티골! 이 선수 몸값 폭등할듯 ㄷㄷ`);
+                    }
+                } else if (lost) {
+                    reactions.push(`😞 ${opponent}한테 ${score}로 졌네... 아쉽다`);
+                    if (myRating < 6.5) {
+                        reactions.push(`🤔 ${state.player.name} 요즘 컨디션 별로인듯. 휴식 필요해보임`);
+                    }
+                } else {
+                    reactions.push(`😐 ${opponent}과 ${score} 무승부... 이길 수 있었는데`);
+                }
+            } else {
+                if (myRating >= 9.0) {
+                    reactions.push(`🔥 ${state.player.name} is absolutely world class!! What a shift! Rating ${myRating}!`);
+                } else if (myRating >= 8.0) {
+                    reactions.push(`👏 ${state.player.name} was brilliant today. ${myGoals}G ${myAssists}A - top drawer!`);
+                } else if (myRating < 6.0) {
+                    reactions.push(`😤 ${state.player.name} was shocking today. Rating ${myRating}... should be dropped!`);
+                }
+                
+                if (won) {
+                    reactions.push(`💛🖤 ${opponent} battered! ${score} - WOLVES are on the march!`);
+                    if (myGoals >= 2) {
+                        reactions.push(`⚽⚽ ${state.player.name} with a brace! This lad's value is through the roof!`);
+                    }
+                } else if (lost) {
+                    reactions.push(`😞 Gutted. Lost ${score} to ${opponent}... devastating.`);
+                    if (myRating < 6.5) {
+                        reactions.push(`🤔 ${state.player.name} looked knackered. Needs a rest.`);
+                    }
+                } else {
+                    reactions.push(`😐 ${score} draw against ${opponent}... should've nicked it.`);
+                }
+            }
+            
+            return reactions.slice(0, 3);
+        }
+
+        // --- [2. LANGUAGE SYSTEM] ---
+        const lang = {
+            ko: {
+                // Intro
+                demoVersion: "Demo Version",
+                startGame: "시작하기",
+                selectLang: "Language",
+                
+                // Creation
+                contractInfo: "Contract Info",
+                startAs27: "27세 선수로 시작합니다",
+                playerName: "선수 이름",
+                height: "키 (cm)",
+                weight: "몸무게 (kg)",
+                joinClub: "구단 합류하기",
+                
+                // Nav
+                info: "INFO",
+                table: "TABLE",
+                train: "TRAIN",
+                match: "MATCH",
+                
+                // Match
+                kickOff: "Kick Off",
+                matchPreview: "Match Preview",
+                win: "Win",
+                draw: "Draw",
+                lose: "Lose",
+                h2h: "H2H (올시즌)",
+                leagueRank: "리그 순위",
+                
+                // Train
+                mainTraining: "Main Training",
+                ratingAge: "평점",
+                growthPhase: "성장기",
+                stagnantPhase: "정체기",
+                declinePhase: "하락기",
+                doMainTrain: "메인 훈련 실시",
+                afterNextMatch: "다음 경기 후 다시 가능",
+                special: "Special (EXP)",
+                mentoring: "Mentoring",
+                mentoringWith: "와 수련 중",
+                daysLeft: "일 남음",
+                apply: "신청",
+                
+                // Result
+                matchFinished: "MATCH FINISHED",
+                rating: "Rating",
+                expGained: "EXP Gained",
+                matchStats: "Match Statistics",
+                timeline: "Timeline",
+                motm: "Man of the match",
+                continue: "Continue",
+                
+                // SNS
+                snsReactions: "SNS Reactions",
+                close: "닫기",
+                
+                // Train Result
+                trainingComplete: "Training Complete",
+                totalMultiplier: "총 성장 배수",
+                ageMult: "나이 배수",
+                ratingMult: "평점 배수",
+                statChanges: "능력치 변화",
+                confirm: "확인",
+                
+                // Season Review
+                seasonReview: "Season Review",
+                seasonComplete: "시즌 완료",
+                overall: "Overall",
+                marketValue: "Market Value",
+                avgRating: "Avg Rating",
+                goals: "Goals",
+                managerComment: "Manager's Comment",
+                nextSeason: "다음 시즌 시작",
+                
+                // Retirement
+                careerComplete: "Career Complete",
+                retireAt30: "30세, 은퇴를 맞이합니다",
+                finalOvr: "Final OVR",
+                totalGoals: "Total Goals",
+                years: "Years",
+                thanksDemo: "🎮 THANKS FOR PLAYING THE DEMO!",
+                fullVersion: "What's waiting for you in the Full Version:",
+                feature1: "⚽ Realistic Transfer Market & Player Growth",
+                feature2: "🏆 Scoring Titles & Individual Achievements",
+                feature3: "⚙️ Enhanced Match Simulation Engine",
+                stayTuned: "Stay tuned for the ultimate football career experience.",
+                newCareer: "새로운 커리어 시작",
+                
+                // Info
+                value: "Value",
+                seasonStats: "Season Stats",
+                apps: "Apps",
+                assists: "Assists",
+                shotAcc: "Shot Accuracy",
+                passAcc: "Pass Accuracy",
+                careerHistory: "Career History",
+                
+                // Table
+                standings: "Standings",
+                topScorers: "Top Scorers",
+                topRated: "Top Rated",
+                ucl: "UCL",
+                uel: "UEL",
+                rel: "REL",
+                
+                // All Seasons
+                allSeasonsStats: "All Seasons Stats",
+                noSeasonYet: "아직 완료된 시즌이 없습니다",
+                
+                // SNS Reactions
+                sns1High: "완전 미쳤다!! 이게 프리미어리그 맞나? 평점",
+                sns1Mid: "오늘 진짜 잘했다.",
+                sns1Low: "오늘 뭐했음? 평점",
+                sns1LowEnd: "... 벤치 가야되는거 아님?",
+                snsWin: "격파! 승리! WOLVES 올라온다!",
+                snsMultiGoal: "멀티골! 이 선수 몸값 폭등할듯 ㄷㄷ",
+                snsLose: "한테 로 졌네... 아쉽다",
+                snsLoseBad: "요즘 컨디션 별로인듯. 휴식 필요해보임",
+                snsDraw: "과 무승부... 이길 수 있었는데",
+                
+                // History
+                joinedClub: "울버햄튼 원더러스 FC 입단",
+                seasonEnd: "시즌 종료"
+            },
+            en: {
+                // Intro
+                demoVersion: "Demo Version",
+                startGame: "KICK OFF",
+                selectLang: "Language",
+                
+                // Creation
+                contractInfo: "Contract Info",
+                startAs27: "Starting as a 27-year-old player",
+                playerName: "Player Name",
+                height: "Height (cm)",
+                weight: "Weight (kg)",
+                joinClub: "Sign Contract",
+                
+                // Nav
+                info: "INFO",
+                table: "TABLE",
+                train: "TRAIN",
+                match: "MATCH",
+                
+                // Match
+                kickOff: "Kick Off",
+                matchPreview: "Match Preview",
+                win: "Win",
+                draw: "Draw",
+                lose: "Lose",
+                h2h: "H2H (This Season)",
+                leagueRank: "League Position",
+                
+                // Train
+                mainTraining: "Main Training",
+                ratingAge: "Rating",
+                growthPhase: "Growth Phase",
+                stagnantPhase: "Peak Phase",
+                declinePhase: "Decline Phase",
+                doMainTrain: "Start Training Session",
+                afterNextMatch: "Available after next fixture",
+                special: "Special (EXP)",
+                mentoring: "Mentoring",
+                mentoringWith: "Training with",
+                daysLeft: "days remaining",
+                apply: "Apply",
+                
+                // Result
+                matchFinished: "FULL TIME",
+                rating: "Rating",
+                expGained: "EXP Earned",
+                matchStats: "Match Statistics",
+                timeline: "Timeline",
+                motm: "Man of the Match",
+                continue: "Continue",
+                
+                // SNS
+                snsReactions: "Fan Reactions",
+                close: "Close",
+                
+                // Train Result
+                trainingComplete: "Training Complete",
+                totalMultiplier: "Total Growth Multiplier",
+                ageMult: "Age Multiplier",
+                ratingMult: "Rating Multiplier",
+                statChanges: "Attribute Changes",
+                confirm: "Confirm",
+                
+                // Season Review
+                seasonReview: "Season Review",
+                seasonComplete: "Season Complete",
+                overall: "Overall",
+                marketValue: "Market Value",
+                avgRating: "Avg Rating",
+                goals: "Goals",
+                managerComment: "Gaffer's Verdict",
+                nextSeason: "Start Next Season",
+                
+                // Retirement
+                careerComplete: "Career Complete",
+                retireAt30: "Hanging up the boots at 30",
+                finalOvr: "Final OVR",
+                totalGoals: "Career Goals",
+                years: "Seasons",
+                thanksDemo: "🎮 THANKS FOR PLAYING THE DEMO!",
+                fullVersion: "What's waiting for you in the Full Version:",
+                feature1: "⚽ Realistic Transfer Market & Player Growth",
+                feature2: "🏆 Golden Boot & Individual Honours",
+                feature3: "⚙️ Enhanced Match Engine",
+                stayTuned: "Stay tuned for the ultimate football career experience.",
+                newCareer: "Start New Career",
+                
+                // Info
+                value: "Value",
+                seasonStats: "Season Stats",
+                apps: "Apps",
+                assists: "Assists",
+                shotAcc: "Shot Accuracy",
+                passAcc: "Pass Accuracy",
+                careerHistory: "Career History",
+                
+                // Table
+                standings: "Standings",
+                topScorers: "Top Scorers",
+                topRated: "Top Rated",
+                ucl: "UCL",
+                uel: "UEL",
+                rel: "REL",
+                
+                // All Seasons
+                allSeasonsStats: "All Seasons Stats",
+                noSeasonYet: "No completed seasons yet",
+                
+                // SNS Reactions
+                sns1High: "Absolutely world class!! What a performance! Rating",
+                sns1Mid: "Brilliant display today.",
+                sns1Low: "What was that? Rating",
+                sns1LowEnd: "... should be dropped!",
+                snsWin: "battered! Get in! WOLVES on the rise!",
+                snsMultiGoal: "Brace! This lad's value is skyrocketing!",
+                snsLose: "Gutted. Lost to",
+                snsLoseBad: "Looked knackered out there. Needs a rest.",
+                snsDraw: "Draw against... should've nicked it.",
+                
+                // History
+                joinedClub: "Signed for Wolverhampton Wanderers FC",
+                seasonEnd: "Season Completed"
+            }
+        };
+        
+        let currentLang = 'ko';
+        
+        function t(key) {
+            return lang[currentLang][key] || key;
+        }
+        
+        function setLanguage(langCode) {
+            currentLang = langCode;
+            if (state.player.history.length > 0 && state.player.history[state.player.history.length - 1].type === 'transfer') {
+                state.player.history[state.player.history.length - 1].event = t('joinedClub');
+            }
+            render();
+        }
+
+        // --- [3. GAME STATE] ---
+        const state = {
+            mode: 'intro',
+            currentTab: 'info',
+            showResult: false,
+            showSNS: false,
+            showTrainResult: false,
+            showSeasonReview: false,
+            showRetirement: false,
+            showAllSeasons: false,
+            lastMatchData: null,
+            trainResultData: null,
+            currentYear: 2025,
+            fixtures: generatePLSchedule(2025),
+            gameState: { currentRound: 1, hasTrainedThisMatch: false, lastMatchRating: 7.0, activeMentorship: null, completedMentors: [] },
+            wolvesResults: [],
+            leagueTable: [],
+            topScorers: [],
+            topRated: [],
+            seasonStartStats: null,
+            allSeasonsHistory: [],
+            player: {
+                name: "", age: 27, height: 180, weight: 75, position: "ST",
+                stats: { pace: 254.0, shooting: 254.0, passing: 254.0, dribbling: 254.0, physical: 254.0 },
+                overall: 254, exp: 150,
+                seasonStats: { 
+                    appearances: 0, 
+                    subbed: 0, 
+                    goals: 0, 
+                    assists: 0, 
+                    shotsOnTarget: 0,
+                    totalShots: 0,
+                    passAcc: 0,
+                    totalPasses: 0,
+                    totalRating: 0
+                },
+                history: [{ year: "2025", event: "울버햄튼 원더러스 FC 입단", type: "transfer" }],
+                recentRatings: [7.0, 7.0, 7.0, 7.0, 7.0],
+                marketValue: 1.5
+            }
+        };
+
+        // --- [3. LOGIC] ---
+        function handleCreation(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            state.player.name = formData.get('name');
+            state.player.age = 27;
+            state.player.height = parseInt(formData.get('height'));
+            state.player.weight = parseInt(formData.get('weight'));
+
+            state.player.stats = { pace: 254.0, shooting: 254.0, passing: 254.0, dribbling: 254.0, physical: 254.0 };
+            state.player.overall = 254;
+
+            state.mode = 'game';
+            state.seasonStartStats = {
+                overall: state.player.overall,
+                marketValue: state.player.marketValue,
+                stats: {...state.player.stats}
+            };
+            updateOverall();
+        }
+
+        function updateOverall() {
+            const s = state.player.stats;
+            state.player.overall = Math.round((s.pace + s.shooting + s.passing + s.dribbling + s.physical) / 5);
+            
+            // 실제 시세 반영 몸값 계산 (60->1M, 100->5M, 150->20M, 200->50M, 250->100M, 280->150M, 300->200M)
+            if (state.player.overall < 100) {
+                state.player.marketValue = (state.player.overall * 0.1).toFixed(1);
+            } else if (state.player.overall < 150) {
+                state.player.marketValue = (5 + (state.player.overall - 100) * 0.3).toFixed(1);
+            } else if (state.player.overall < 200) {
+                state.player.marketValue = (20 + (state.player.overall - 150) * 0.6).toFixed(1);
+            } else if (state.player.overall < 250) {
+                state.player.marketValue = (50 + (state.player.overall - 200) * 1.0).toFixed(1);
+            } else if (state.player.overall < 280) {
+                state.player.marketValue = (100 + (state.player.overall - 250) * 1.67).toFixed(1);
+            } else {
+                state.player.marketValue = (150 + (state.player.overall - 280) * 2.5).toFixed(1);
+            }
+            
+            render();
+        }
+
+        function startNextSeason() {
+            if (state.player.age >= 30) {
+                state.showRetirement = true;
+                render();
+                return;
+            }
+            
+            // 시즌 기록 저장
+            const avgRating = state.player.seasonStats.appearances > 0 
+                ? (state.player.seasonStats.totalRating / state.player.seasonStats.appearances).toFixed(2) 
+                : '0.00';
+            const wolvesRank = state.leagueTable.findIndex(t => t.team === "Wolves") + 1;
+            
+            state.allSeasonsHistory.unshift({
+                year: `${state.currentYear}/${state.currentYear + 1}`,
+                goals: state.player.seasonStats.goals,
+                assists: state.player.seasonStats.assists,
+                avgRating: avgRating,
+                leagueRank: wolvesRank > 0 ? wolvesRank : '-'
+            });
+            
+            state.currentYear += 1;
+            state.player.age += 1;
+            state.player.history.unshift({
+                year: state.currentYear.toString(),
+                event: `${state.currentYear - 1} 시즌 종료 (OVR ${state.player.overall}, ${state.player.seasonStats.goals}골)`,
+                type: "major"
+            });
+            state.player.seasonStats = { 
+                appearances: 0, 
+                subbed: 0, 
+                goals: 0, 
+                assists: 0, 
+                shotsOnTarget: 0,
+                totalShots: 0,
+                passAcc: 0,
+                totalPasses: 0,
+                totalRating: 0
+            };
+            state.gameState.currentRound = 1;
+            state.gameState.hasTrainedThisMatch = false;
+            state.fixtures = generatePLSchedule(state.currentYear);
+            state.wolvesResults = [];
+            state.leagueTable = [];
+            state.topScorers = [];
+            state.topRated = [];
+            state.seasonStartStats = {
+                overall: state.player.overall,
+                marketValue: state.player.marketValue,
+                stats: {...state.player.stats}
+            };
+            state.currentTab = 'train';
+            render();
+        }
+
+        function playMatch(silent = false) {
+            if (state.gameState.currentRound > 38) return;
+            const fixture = state.fixtures[state.gameState.currentRound - 1];
+            const squad = teamSquads[fixture.opponent];
+            
+            const myRating = parseFloat((Math.random() * 4.5 + 5.5).toFixed(1));
+            const isSub = Math.random() > 0.85;
+            
+            const ovrFactor = (state.player.overall - 60) / 240;
+            const goalChance = 0.2 + (ovrFactor * 0.4);
+            const myGoals = Math.random() < goalChance ? 1 : 0;
+            const myAssists = Math.random() > 0.85 ? 1 : 0;
+            const earnedExp = Math.floor(myRating * 15);
+            
+            const shotsOnTarget = Math.floor(Math.random() * 4) + 1;
+            const totalShots = shotsOnTarget + Math.floor(Math.random() * 3);
+            const successPasses = Math.floor(Math.random() * 30) + 20;
+            const totalPasses = successPasses + Math.floor(Math.random() * 10);
+            
+            const playerImpact = (state.player.overall - 60) / 240;
+            const matchResult = simulateMatch(
+                fixture.isHome ? "Wolves" : fixture.opponent,
+                fixture.isHome ? fixture.opponent : "Wolves",
+                true,
+                playerImpact
+            );
+            
+            const wolvesTotal = fixture.isHome ? matchResult.homeGoals : matchResult.awayGoals;
+            const oppTotal = fixture.isHome ? matchResult.awayGoals : matchResult.homeGoals;
+            
+            state.wolvesResults.push({
+                round: state.gameState.currentRound,
+                opponent: fixture.opponent,
+                isHome: fixture.isHome,
+                wolvesGoals: wolvesTotal,
+                oppGoals: oppTotal
+            });
+            
+            let matchTimeline = [];
+            if (myGoals > 0 && wolvesTotal > 0) matchTimeline.push({ min: Math.floor(Math.random() * 85 + 5), team: 'WOL', player: state.player.name, assist: "M. Cunha" });
+            
+            const remainingWolvesGoals = Math.max(0, wolvesTotal - myGoals);
+            for(let i = 0; i < remainingWolvesGoals; i++) {
+                matchTimeline.push({ min: Math.floor(Math.random() * 85 + 5), team: 'WOL', player: "H.C. Hwang", assist: "M. Lemina" });
+            }
+            
+            for(let i=0; i < oppTotal; i++) {
+                const scorer = squad.strikers[Math.floor(Math.random() * squad.strikers.length)];
+                const asst = squad.mids[Math.floor(Math.random() * squad.mids.length)];
+                matchTimeline.push({ min: Math.floor(Math.random() * 85 + 5), team: 'OPP', player: scorer, assist: asst });
+            }
+            matchTimeline.sort((a, b) => a.min - b.min);
+
+            let candidates = [
+                { name: state.player.name, rating: myRating, goals: myGoals },
+                { name: "H.C. Hwang", rating: Math.min(10.0, parseFloat((Math.random() * 2 + 6.0 + (remainingWolvesGoals * 1.5)).toFixed(1))), goals: remainingWolvesGoals },
+                { name: "J. Sa", rating: Math.min(10.0, parseFloat((Math.random() * 2 + 6.5 - (oppTotal * 0.5)).toFixed(1))), goals: 0 }
+            ];
+            if (oppTotal > 0) candidates.push({ name: squad.strikers[0], rating: Math.min(10.0, parseFloat((Math.random() * 2 + 6.0 + (oppTotal * 1.0)).toFixed(1))), goals: oppTotal });
+            candidates.sort((a, b) => b.rating - a.rating || b.goals - a.goals);
+            const winner = candidates[0];
+
+            state.lastMatchData = {
+                opponent: fixture.opponent, score: `${wolvesTotal} - ${oppTotal}`,
+                myRating, myGoals, myAssists, earnedExp, isSub,
+                shotsOnTarget, totalShots,
+                motm: `${winner.name} (${winner.rating})`,
+                stats: {
+                    possession: [Math.floor(Math.random() * 20 + 40), 0],
+                    xg: [(Math.random() * 2).toFixed(2), (Math.random() * 2).toFixed(2)],
+                    shots: [Math.floor(Math.random() * 10 + 5), Math.floor(Math.random() * 10 + 5)],
+                    shotsOnTarget: [Math.floor(Math.random() * 5 + 1), Math.floor(Math.random() * 5 + 1)]
+                },
+                timeline: matchTimeline
+            };
+            state.lastMatchData.stats.possession[1] = 100 - state.lastMatchData.stats.possession[0];
+
+            state.gameState.lastMatchRating = myRating;
+            state.player.seasonStats.appearances += 1;
+            if (isSub) state.player.seasonStats.subbed += 1;
+            state.player.seasonStats.goals += myGoals;
+            state.player.seasonStats.assists += myAssists;
+            state.player.seasonStats.shotsOnTarget += shotsOnTarget;
+            state.player.seasonStats.totalShots += totalShots;
+            state.player.seasonStats.totalPasses += totalPasses;
+            state.player.seasonStats.passAcc += successPasses;
+            state.player.seasonStats.totalRating += myRating;
+            state.player.exp += earnedExp;
+            state.player.recentRatings.shift();
+            state.player.recentRatings.push(myRating);
+
+            if (state.gameState.activeMentorship) {
+                state.gameState.activeMentorship.daysLeft -= 7;
+                if (state.gameState.activeMentorship.daysLeft <= 0) {
+                    const m = state.gameState.activeMentorship;
+                    state.player.stats[m.targetStat] += 10;
+                    state.gameState.completedMentors.push(m.mentorName);
+                    state.player.history.unshift({year: state.currentYear.toString(), event: `${m.mentorName} 멘토링 수료 (+10 ${m.targetStat})`, type: "award"});
+                    state.gameState.activeMentorship = null;
+                }
+            }
+
+            state.leagueTable = simulateFullLeague(state.gameState.currentRound + 1, state.wolvesResults);
+            
+            state.gameState.hasTrainedThisMatch = false;
+            state.gameState.currentRound += 1;
+            
+            if (state.gameState.currentRound > 38) {
+                state.showSeasonReview = true;
+            } else if (!silent) {
+                state.showResult = true;
+                state.currentTab = 'train';
+            }
+            
+            updateOverall();
+        }
+
+        function handleMainTrain(silent = false) {
+            if(state.gameState.hasTrainedThisMatch && !silent) return alert("이미 이번 주 훈련을 마쳤습니다.");
+            
+            const ageMult = getGrowthMultiplier(state.player.age);
+            let ratingMult = state.gameState.lastMatchRating >= 9.0 ? 1.5 : (state.gameState.lastMatchRating >= 7.7 ? 1.0 : (state.gameState.lastMatchRating < 6.0 ? 0.5 : 0.8));
+            
+            const finalMult = ageMult * ratingMult * 0.28;
+            
+            const oldStats = {...state.player.stats};
+            const keys = Object.keys(state.player.stats);
+            const statChanges = {};
+            
+            for(let i=0; i<5; i++) {
+                let target = keys[Math.floor(Math.random() * keys.length)];
+                const growth = parseFloat((4 * finalMult).toFixed(1));
+                state.player.stats[target] = Math.min(300, parseFloat((state.player.stats[target] + growth).toFixed(1)));
+                
+                if (!statChanges[target]) statChanges[target] = 0;
+                statChanges[target] += growth;
+            }
+            
+            state.gameState.hasTrainedThisMatch = true;
+            
+            if (!silent) {
+                state.trainResultData = {
+                    multiplier: finalMult.toFixed(2),
+                    ageMult: ageMult,
+                    ratingMult: ratingMult,
+                    changes: statChanges
+                };
+                state.showTrainResult = true;
+            }
+            
+            updateOverall();
+        }
+
+        function handleSpecialTrain(stat) {
+            if(state.player.exp < 50) return alert("EXP가 부족합니다 (50 필요)");
+            if(state.player.stats[stat] >= 300) return alert("성장할 수 있는 최대치에 도달했습니다");
+            state.player.exp -= 50;
+            state.player.stats[stat] = Math.min(300, state.player.stats[stat] + 1);
+            updateOverall();
+        }
+
+        function startMentoring(name, stat, val) {
+            if (state.gameState.completedMentors.includes(name)) return alert("이미 수료한 멘토입니다.");
+            if (state.gameState.activeMentorship) return alert("진행 중인 멘토링이 있습니다.");
+            state.gameState.activeMentorship = { mentorName: name, targetStat: stat, targetVal: val, daysLeft: 180 };
+            render();
+        }
+
+        function getManagerComment() {
+            const avgRating = state.player.seasonStats.appearances > 0 
+                ? (state.player.seasonStats.totalRating / state.player.seasonStats.appearances).toFixed(2) 
+                : 0;
+            const statGrowth = state.player.overall - state.seasonStartStats.overall;
+            
+            if (currentLang === 'ko') {
+                if (avgRating >= 8.5 && statGrowth >= 15) {
+                    return "환상적인 시즌이었다. 자네는 이 팀의 미래다.";
+                } else if (avgRating >= 7.5 && statGrowth >= 10) {
+                    return "훌륭한 성장세를 보여줬네. 다음 시즌이 기대된다.";
+                } else if (avgRating >= 7.0) {
+                    return "괜찮은 시즌이었어. 하지만 더 발전할 여지가 있네.";
+                } else if (avgRating >= 6.0) {
+                    return "기복이 있었지만 나쁘지 않았네. 더 안정적인 플레이가 필요해.";
+                } else {
+                    return "실망스러운 시즌이었네. 다음 시즌엔 더 분발하길 바라네.";
+                }
+            } else {
+                if (avgRating >= 8.5 && statGrowth >= 15) {
+                    return "Brilliant season, lad. You're the future of this club.";
+                } else if (avgRating >= 7.5 && statGrowth >= 10) {
+                    return "Cracking progress this term. Looking forward to next season.";
+                } else if (avgRating >= 7.0) {
+                    return "Decent campaign. Still room for improvement though.";
+                } else if (avgRating >= 6.0) {
+                    return "Bit inconsistent, but not bad. Need more composure.";
+                } else {
+                    return "Disappointing season. Expect better next time.";
+                }
+            }
+        }
+
+        // --- [4. UI RENDER] ---
+        function render() {
+            const app = document.getElementById('app');
+            const p = state.player;
+            const g = state.gameState;
+            const avgRating = (p.recentRatings.reduce((a, b) => a + b, 0) / 5).toFixed(1);
+
+            if (state.mode === 'intro') { app.innerHTML = renderIntro(); return; }
+            if (state.mode === 'creation') { app.innerHTML = renderCreationModal(); return; }
+
+            app.innerHTML = `
+                <nav class="bg-black border-b border-gray-800 p-4 flex justify-between items-center sticky top-0 z-50">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-wolves p-1 rounded text-black font-black text-xs italic">W</div>
+                        <span class="font-black italic text-sm tracking-tighter uppercase">Wolf Tooth Career</span>
+                    </div>
+                    <div class="flex gap-6">
+                        <button onclick="state.currentTab='info'; render();" class="text-xs font-bold ${state.currentTab==='info'?'active-tab':''}">INFO</button>
+                        <button onclick="state.currentTab='table'; render();" class="text-xs font-bold ${state.currentTab==='table'?'active-tab':''}">TABLE</button>
+                        <button onclick="state.currentTab='train'; render();" class="text-xs font-bold ${state.currentTab==='train'?'active-tab':''}">TRAIN</button>
+                        <button onclick="state.currentTab='match'; render();" class="text-xs font-bold ${state.currentTab==='match'?'active-tab':''}">MATCH</button>
+                    </div>
+                </nav>
+                <main class="max-w-md mx-auto p-4 space-y-4">
+                    ${state.currentTab === 'info' ? renderInfo(p, avgRating) : (state.currentTab === 'table' ? renderTable() : (state.currentTab === 'train' ? renderTrain(p, g) : renderMatch(g)))}
+                </main>
+                ${state.showResult ? renderResultModal() : ''}
+                ${state.showSNS ? renderSNSModal() : ''}
+                ${state.showTrainResult ? renderTrainResultModal() : ''}
+                ${state.showSeasonReview ? renderSeasonReviewModal() : ''}
+                ${state.showRetirement ? renderRetirementModal() : ''}
+                ${state.showAllSeasons ? renderAllSeasonsModal() : ''}
+            `;
+        }
+
+        function renderIntro() {
+            return `
+                <div class="h-screen w-full flex flex-col items-center justify-center p-8 bg-black">
+                    <div class="mb-12 animate-ui text-center">
+                        <div class="intro-title text-white">WOLF TOOTH</div>
+                        <div class="text-xl font-black wolves-gold tracking-widest">:PLAYER CAREER</div>
+                        <div class="h-1 w-48 bg-wolves mt-4 mx-auto"></div>
+                    </div>
+                    <p class="text-gray-500 font-black text-xs uppercase tracking-[0.5em] mb-8">${t('demoVersion')}</p>
+                    
+                    <div class="flex gap-3 mb-8">
+                        <button onclick="setLanguage('ko')" class="px-4 py-2 rounded-lg text-xs font-black uppercase ${currentLang === 'ko' ? 'bg-wolves text-black' : 'bg-gray-800 text-white hover:bg-gray-700'}">한국어</button>
+                        <button onclick="setLanguage('en')" class="px-4 py-2 rounded-lg text-xs font-black uppercase ${currentLang === 'en' ? 'bg-wolves text-black' : 'bg-gray-800 text-white hover:bg-gray-700'}">English</button>
+                    </div>
+                    
+                    <button onclick="state.mode='creation'; render();" class="group relative flex items-center gap-4 bg-wolves text-black font-black px-12 py-5 rounded-full text-xs uppercase tracking-widest hover:pr-16 transition-all duration-300 shadow-[0_0_30px_rgba(253,185,19,0.2)]">
+                        ${t('startGame')}
+                        <span class="absolute right-8 opacity-0 group-hover:opacity-100 transition-all">→</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderCreationModal() {
+            return `
+                <div class="modal-overlay">
+                    <div class="bg-[#111] w-full max-w-sm rounded-2xl p-8 border border-white/5 shadow-2xl animate-ui">
+                        <div class="text-center mb-10">
+                            <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white">${t('contractInfo')}</h2>
+                            <p class="text-[10px] text-gray-500 font-bold uppercase mt-2">${t('startAs27')}</p>
+                        </div>
+                        <form onsubmit="handleCreation(event)" class="space-y-6">
+                            <div><label class="stat-label">${t('playerName')}</label><input type="text" name="name" placeholder="Name" required class="creation-input"></div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="stat-label">${t('height')}</label><input type="number" name="height" value="185" required class="creation-input"></div>
+                                <div><label class="stat-label">${t('weight')}</label><input type="number" name="weight" value="78" required class="creation-input"></div>
+                            </div>
+                            <button type="submit" class="w-full bg-wolves text-black font-black py-4 rounded-xl text-xs uppercase mt-6 hover:bg-white transition-colors duration-300">${t('joinClub')}</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderResultModal() {
+            const d = state.lastMatchData;
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-sm rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                        <div class="bg-gradient-to-b from-zinc-800 to-black p-6 text-center border-b border-white/5">
+                            <p class="text-[10px] font-black text-wolves mb-2 tracking-[0.2em]">MATCH FINISHED</p>
+                            <div class="flex justify-around items-center mb-4">
+                                <span class="font-black text-lg italic uppercase">WOLVES</span>
+                                <span class="text-4xl font-black italic tracking-tighter">${d.score}</span>
+                                <span class="font-black text-lg italic uppercase text-gray-500">${d.opponent.substring(0,3)}</span>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+                            <div class="bg-white/5 rounded-xl p-4 flex justify-between items-center">
+                                <div class="flex gap-4">
+                                    <div><p class="stat-label">Rating</p><p class="text-xl font-black text-blue-400">${d.myRating}</p></div>
+                                    <div><p class="stat-label">G / A</p><p class="text-xl font-black">${d.myGoals} / ${d.myAssists}</p></div>
+                                </div>
+                                <div class="text-right"><p class="stat-label">EXP Gained</p><p class="text-sm font-black text-green-400">+${d.earnedExp}</p></div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <p class="text-[10px] font-black text-gray-500 uppercase italic">Match Statistics</p>
+                                ${Object.entries(d.stats).map(([key, val]) => `
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between text-[10px] font-bold uppercase">
+                                            <span>${val[0]}${key==='possession'?'%':''}</span>
+                                            <span class="text-gray-500">${key}</span>
+                                            <span>${val[1]}${key==='possession'?'%':''}</span>
+                                        </div>
+                                        <div class="flex gap-1">
+                                            <div class="team-bar"><div class="team-bar-fill" style="width: ${(val[0]/(parseFloat(val[0])+parseFloat(val[1]))*100)||0}%"></div></div>
+                                            <div class="team-bar flex justify-end"><div class="bg-gray-600 h-full rounded-sm" style="width: ${(val[1]/(parseFloat(val[0])+parseFloat(val[1]))*100)||0}%"></div></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+
+                            <div class="space-y-3">
+                                <p class="text-[10px] font-black text-gray-500 uppercase italic">Timeline</p>
+                                <div class="space-y-2">
+                                    ${d.timeline.map(event => `
+                                        <div class="flex items-center gap-3 text-xs ${event.team === 'WOL' ? '' : 'flex-row-reverse text-right'}">
+                                            <span class="font-black wolves-gold w-6">${event.min}'</span>
+                                            <div class="flex-grow bg-white/5 p-2 rounded-lg border border-white/5">
+                                                <p class="font-bold">${event.player}</p>
+                                                <p class="text-[9px] text-gray-500">Assist: ${event.assist}</p>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div class="pt-2">
+                                <div class="flex justify-between items-center px-2 mb-4">
+                                    <span class="text-[10px] font-bold text-gray-500 italic uppercase">Man of the match</span>
+                                    <span class="text-xs font-black text-yellow-500">⭐ ${d.motm}</span>
+                                </div>
+                                <button onclick="state.showResult=false; state.showSNS=true; render();" class="w-full bg-white text-black font-black py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-wolves transition-colors">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSNSModal() {
+            const reactions = generateSNSReactions(state.lastMatchData);
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-sm rounded-2xl p-6 border border-white/10 shadow-2xl">
+                        <h3 class="text-lg font-black italic uppercase mb-6 text-center wolves-gold">${t('snsReactions')}</h3>
+                        <div class="space-y-4 mb-6">
+                            ${reactions.map(reaction => `
+                                <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                                    <p class="text-sm font-bold">${reaction}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="state.showSNS=false; render();" class="w-full bg-wolves text-black font-black py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-white transition-colors">${t('close')}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTrainResultModal() {
+            const d = state.trainResultData;
+            const phaseText = currentLang === 'ko' 
+                ? (d.ageMult >= 1.0 ? '(성장기)' : d.ageMult > 0 ? '(정체기)' : '(하락기)')
+                : (d.ageMult >= 1.0 ? '(Growth)' : d.ageMult > 0 ? '(Peak)' : '(Decline)');
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-sm rounded-2xl p-6 border border-white/10 shadow-2xl">
+                        <h3 class="text-lg font-black italic uppercase mb-4 text-center wolves-gold">${t('trainingComplete')}</h3>
+                        <div class="bg-white/5 rounded-lg p-4 mb-4">
+                            <p class="text-xs text-gray-400 mb-2">${t('totalMultiplier')}</p>
+                            <p class="text-2xl font-black">x${d.multiplier}</p>
+                            <div class="mt-3 text-[10px] text-gray-500">
+                                <p>${t('ageMult')}: x${d.ageMult} ${phaseText}</p>
+                                <p>${t('ratingMult')}: x${d.ratingMult}</p>
+                            </div>
+                        </div>
+                        <div class="space-y-2 mb-6">
+                            <p class="text-xs font-bold text-gray-400 mb-3">${t('statChanges')}</p>
+                            ${Object.entries(d.changes).map(([stat, change]) => `
+                                <div class="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                                    <span class="text-xs font-bold uppercase">${stat}</span>
+                                    <span class="text-sm font-black text-green-400">+${change.toFixed(1)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="state.showTrainResult=false; render();" class="w-full bg-wolves text-black font-black py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-white transition-colors">${t('confirm')}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSeasonReviewModal() {
+            const statGrowth = state.player.overall - state.seasonStartStats.overall;
+            const valueGrowth = (parseFloat(state.player.marketValue) - parseFloat(state.seasonStartStats.marketValue)).toFixed(1);
+            const avgRating = state.player.seasonStats.appearances > 0 
+                ? (state.player.seasonStats.totalRating / state.player.seasonStats.appearances).toFixed(2) 
+                : '0.00';
+            
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-sm rounded-2xl p-6 border border-white/10 shadow-2xl">
+                        <h3 class="text-2xl font-black italic uppercase mb-6 text-center wolves-gold">${state.currentYear} ${t('seasonReview')}</h3>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-white/5 rounded-lg p-4">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('overall')}</p>
+                                <p class="text-2xl font-black">${state.seasonStartStats.overall} → ${state.player.overall}</p>
+                                <p class="text-xs font-black text-green-400">+${statGrowth}</p>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-4">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('marketValue')}</p>
+                                <p class="text-lg font-black">£${state.player.marketValue}M</p>
+                                <p class="text-xs font-black text-green-400">+£${valueGrowth}M</p>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-4">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('avgRating')}</p>
+                                <p class="text-2xl font-black text-blue-400">${avgRating}</p>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-4">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('goals')}</p>
+                                <p class="text-2xl font-black text-green-400">${state.player.seasonStats.goals}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-wolves/20 to-transparent rounded-lg p-4 mb-6 border-l-4 border-wolves">
+                            <p class="text-[9px] font-bold uppercase text-gray-500 mb-2">${t('managerComment')}</p>
+                            <p class="text-sm font-bold italic">"${getManagerComment()}"</p>
+                        </div>
+
+                        <button onclick="state.showSeasonReview=false; startNextSeason();" class="w-full bg-wolves text-black font-black py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-white transition-colors">${t('nextSeason')}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRetirementModal() {
+            const totalGoals = state.player.history.reduce((sum, h) => {
+                const match = h.event.match(/(\d+)골/) || h.event.match(/(\d+)G/);
+                return sum + (match ? parseInt(match[1]) : 0);
+            }, 0);
+            
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-lg rounded-2xl p-8 border border-white/10 shadow-2xl">
+                        <div class="text-center mb-8">
+                            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-wolves mb-2">${t('careerComplete')}</h2>
+                            <p class="text-gray-500 font-bold text-sm">${t('retireAt30')}</p>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-wolves/20 to-transparent rounded-lg p-6 mb-6 border-l-4 border-wolves">
+                            <p class="text-2xl font-black mb-4">${state.player.name}</p>
+                            <div class="grid grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase">${t('finalOvr')}</p>
+                                    <p class="text-2xl font-black">${state.player.overall}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase">${t('totalGoals')}</p>
+                                    <p class="text-2xl font-black text-green-400">${totalGoals}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase">${t('years')}</p>
+                                    <p class="text-2xl font-black">${state.player.age - 27}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-b from-yellow-900/30 to-transparent rounded-xl p-6 mb-6 border border-wolves/30 text-center">
+                            <p class="text-2xl font-black text-wolves mb-4">${t('thanksDemo')}</p>
+                            <p class="text-sm font-bold text-gray-300 mb-4">${t('fullVersion')}</p>
+                            <div class="space-y-2 text-left max-w-xs mx-auto">
+                                <p class="text-xs font-bold">${t('feature1')}</p>
+                                <p class="text-xs font-bold">${t('feature2')}</p>
+                                <p class="text-xs font-bold">${t('feature3')}</p>
+                            </div>
+                            <p class="text-sm font-black text-wolves mt-4 italic">${t('stayTuned')}</p>
+                        </div>
+
+                        <div class="text-center">
+                            <button onclick="location.reload();" class="bg-wolves text-black font-black px-12 py-4 rounded-full text-xs uppercase tracking-widest hover:bg-white transition-colors">${t('newCareer')}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderInfo(p, avg) {
+            const avgRating = p.seasonStats.appearances > 0 
+                ? (p.seasonStats.totalRating / p.seasonStats.appearances).toFixed(2) 
+                : '0.00';
+            const shotAccuracy = p.seasonStats.totalShots > 0 
+                ? ((p.seasonStats.shotsOnTarget / p.seasonStats.totalShots) * 100).toFixed(1) 
+                : '0.0';
+            const passAccuracy = p.seasonStats.totalPasses > 0 
+                ? ((p.seasonStats.passAcc / p.seasonStats.totalPasses) * 100).toFixed(1) 
+                : '0.0';
+            
+            return `
+                <div class="fotmob-card p-6 animate-ui">
+                    <div class="flex justify-between items-start mb-6">
+                        <div><h2 class="text-3xl font-black mb-1 uppercase">${p.name}</h2><p class="text-[11px] wolves-gold font-black uppercase tracking-widest">${p.position} • OVR ${p.overall} • ${p.age}세</p></div>
+                        <div class="text-right"><p class="stat-label">Value</p><p class="text-xl font-black italic">£${p.marketValue}M</p></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 pt-4 border-t border-white/5">
+                        <div><p class="stat-label">키</p><p class="stat-value">${p.height}cm</p></div>
+                        <div><p class="stat-label">몸무게</p><p class="stat-value">${p.weight}kg</p></div>
+                        <div><p class="stat-label">EXP</p><p class="stat-value text-green-400">${p.exp}</p></div>
+                    </div>
+                </div>
+                <div class="fotmob-card p-5 animate-ui">
+                    <p class="stat-label mb-4 italic text-gray-400 font-bold">Technical Attributes</p>
+                    <div class="grid grid-cols-2 gap-x-8 gap-y-2">
+                        ${Object.entries(p.stats).map(([k,v]) => `<div class="flex justify-between border-b border-white/5 pb-1"><span class="text-[10px] uppercase font-bold text-gray-500">${k}</span><span class="text-xs font-black">${v.toFixed(1)}</span></div>`).join('')}
+                    </div>
+                </div>
+                <div class="fotmob-card p-5 animate-ui">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="stat-label italic text-gray-400 font-bold">Season ${state.currentYear}/${state.currentYear + 1} Stats</p>
+                        <button onclick="state.showAllSeasons=true; render();" class="text-[9px] font-black uppercase text-wolves underline hover:text-white transition-colors">전체 시즌</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Appearances</p>
+                            <p class="text-2xl font-black">${p.seasonStats.appearances} <span class="text-xs text-gray-500">(${p.seasonStats.subbed})</span></p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Average Rating</p>
+                            <p class="text-2xl font-black text-blue-400">${avgRating}</p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Goals</p>
+                            <p class="text-2xl font-black text-green-400">${p.seasonStats.goals}</p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Assists</p>
+                            <p class="text-2xl font-black text-yellow-400">${p.seasonStats.assists}</p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Shot Accuracy</p>
+                            <p class="text-xl font-black">${shotAccuracy}% <span class="text-xs text-gray-500">(${p.seasonStats.shotsOnTarget}/${p.seasonStats.totalShots})</span></p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">Pass Accuracy</p>
+                            <p class="text-xl font-black">${passAccuracy}%</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="fotmob-card p-5 animate-ui">
+                    <p class="stat-label mb-6 italic text-gray-400 font-bold">Career History</p>
+                    <div class="space-y-6 ml-2 max-h-64 overflow-y-auto">
+                        ${p.history.map((item, idx) => `<div class="relative flex items-center gap-4">${idx !== p.history.length - 1 ? '<div class="history-line"></div>' : ''}<div class="history-dot"></div><div><p class="text-[9px] font-bold text-gray-500 uppercase">${item.year}</p><p class="text-xs font-black ${item.type==='major'?'text-yellow-500':''}">${item.event}</p></div></div>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTrain(p, g) {
+            const ageMult = getGrowthMultiplier(p.age);
+            let ratingMult = g.lastMatchRating >= 9.0 ? 1.5 : (g.lastMatchRating >= 7.7 ? 1.0 : (g.lastMatchRating < 6.0 ? 0.5 : 0.8));
+            const finalMult = (ageMult * ratingMult * 0.5).toFixed(2);
+            
+            const phaseEmoji = ageMult >= 1.0 ? '🔥' : ageMult > 0 ? '⚡' : '📉';
+            const phaseText = currentLang === 'ko' 
+                ? (ageMult >= 1.0 ? '성장기' : ageMult > 0 ? '정체기' : '하락기')
+                : (ageMult >= 1.0 ? 'Growth Phase' : ageMult > 0 ? 'Peak Phase' : 'Decline Phase');
+            const ratingAgeText = currentLang === 'ko' 
+                ? `평점 ${g.lastMatchRating} × 나이(${p.age}세) = x${finalMult}`
+                : `Rating ${g.lastMatchRating} × Age(${p.age}) = x${finalMult}`;
+            const mentoringWithText = currentLang === 'ko'
+                ? `${g.activeMentorship?.mentorName}와 수련 중 (${g.activeMentorship?.daysLeft}일 남음)`
+                : `Training with ${g.activeMentorship?.mentorName} (${g.activeMentorship?.daysLeft} days left)`;
+            
+            return `
+                <div class="fotmob-card p-5 border-l-4 border-yellow-500 animate-ui">
+                    <h3 class="text-sm font-black italic mb-1 uppercase tracking-tighter">${t('mainTraining')}</h3>
+                    <p class="text-[10px] text-gray-500 mb-2 font-bold uppercase tracking-tight">
+                        ${ratingAgeText}
+                    </p>
+                    <p class="text-[9px] text-gray-400 mb-4">
+                        ${phaseEmoji} ${phaseText}
+                    </p>
+                    <button onclick="handleMainTrain()" class="w-full ${g.hasTrainedThisMatch?'bg-gray-800 text-gray-400':'bg-wolves text-black'} py-4 rounded-xl font-black text-xs" ${g.hasTrainedThisMatch?'disabled':''}>
+                        ${g.hasTrainedThisMatch ? t('afterNextMatch') : t('doMainTrain')}
+                    </button>
+                </div>
+                <div class="fotmob-card p-5 animate-ui">
+                    <div class="flex justify-between mb-4"><h3 class="text-sm font-black italic uppercase">${t('special')}</h3><span class="text-[10px] text-green-400 font-black italic">${p.exp} EXP</span></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${Object.keys(p.stats).map(k => `<button onclick="handleSpecialTrain('${k}')" class="stat-btn flex justify-between items-center"><span>${k.toUpperCase()}</span><span>+1</span></button>`).join('')}
+                    </div>
+                </div>
+                <div class="fotmob-card p-5 animate-ui">
+                    <h3 class="text-sm font-black italic uppercase mb-4">${t('mentoring')}</h3>
+                    ${g.activeMentorship ? `
+                        <div class="bg-black/50 p-4 rounded-lg border border-yellow-900/30">
+                            <p class="text-[10px] font-bold text-gray-400 mb-2 italic">${mentoringWithText}</p>
+                            <div class="progress-bar"><div class="progress-fill" style="width: ${((180-g.activeMentorship.daysLeft)/180)*100}%"></div></div>
+                        </div>
+                    ` : `
+                        <div class="space-y-2">
+                            ${!g.completedMentors.includes('H.C. Hwang') ? `<div class="flex justify-between items-center bg-white/5 p-3 rounded-lg"><span class="text-xs font-bold">H.C. Hwang (Pace Mentor)</span><button onclick="startMentoring('H.C. Hwang','pace',84)" class="text-wolves font-black text-[10px] uppercase underline">${t('apply')}</button></div>` : ''}
+                            ${!g.completedMentors.includes('M. Cunha') ? `<div class="flex justify-between items-center bg-white/5 p-3 rounded-lg"><span class="text-xs font-bold">M. Cunha (Dribble Mentor)</span><button onclick="startMentoring('M. Cunha','dribbling',86)" class="text-wolves font-black text-[10px] uppercase underline">${t('apply')}</button></div>` : ''}
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        function renderMatch(g) {
+            const seasonFinishedText = currentLang === 'ko' ? '성공적으로 시즌을 마쳤습니다.' : 'Season successfully completed.';
+            if (g.currentRound > 38) return `
+                <div class="fotmob-card p-12 text-center animate-ui">
+                    <h3 class="text-2xl font-black italic wolves-gold uppercase">Season Finished!</h3>
+                    <p class="text-xs text-gray-500 mt-2 mb-8 font-bold uppercase">${seasonFinishedText}</p>
+                </div>
+            `;
+            const fixture = state.fixtures[g.currentRound - 1];
+            
+            // 승무패 확률 계산
+            const playerImpact = (state.player.overall - 60) / 240;
+            const wolvesStr = teamSquads["Wolves"].strength + (playerImpact * 10);
+            const oppStr = teamSquads[fixture.opponent].strength;
+            const homeAdv = fixture.isHome ? 3 : 0;
+            
+            const totalStr = wolvesStr + homeAdv + oppStr;
+            const winProb = ((wolvesStr + homeAdv) / totalStr * 100).toFixed(0);
+            const loseProb = (oppStr / totalStr * 100).toFixed(0);
+            const drawProb = (100 - winProb - loseProb).toFixed(0);
+            
+            // 올시즌 상대전적
+            const pastMatches = state.wolvesResults.filter(r => r.opponent === fixture.opponent);
+            const h2hWin = pastMatches.filter(m => m.wolvesGoals > m.oppGoals).length;
+            const h2hDraw = pastMatches.filter(m => m.wolvesGoals === m.oppGoals).length;
+            const h2hLose = pastMatches.filter(m => m.wolvesGoals < m.oppGoals).length;
+            
+            // 리그 순위
+            const wolvesRank = state.leagueTable.length > 0 ? (state.leagueTable.findIndex(t => t.team === "Wolves") + 1) : '-';
+            const oppRank = state.leagueTable.length > 0 ? (state.leagueTable.findIndex(t => t.team === fixture.opponent) + 1) : '-';
+            
+            // 올시즌 기록
+            const wolvesData = state.leagueTable.find(t => t.team === "Wolves");
+            const oppData = state.leagueTable.find(t => t.team === fixture.opponent);
+            
+            const wolvesGPG = wolvesData && wolvesData.played > 0 ? (wolvesData.gf / wolvesData.played).toFixed(1) : '0.0';
+            const wolvesGAPG = wolvesData && wolvesData.played > 0 ? (wolvesData.ga / wolvesData.played).toFixed(1) : '0.0';
+            const wolvesCS = wolvesData ? wolvesData.form.filter(f => f === 'W').length : 0;
+            
+            const oppGPG = oppData && oppData.played > 0 ? (oppData.gf / oppData.played).toFixed(1) : '0.0';
+            const oppGAPG = oppData && oppData.played > 0 ? (oppData.ga / oppData.played).toFixed(1) : '0.0';
+            const oppCS = oppData ? oppData.form.filter(f => f === 'W').length : 0;
+            
+            const h2hText = currentLang === 'ko' ? 'H2H (올시즌)' : 'H2H (This Season)';
+            const h2hResult = currentLang === 'ko' 
+                ? `${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
+                : `${h2hWin}W ${h2hDraw}D ${h2hLose}L`;
+            const leaguePositionText = currentLang === 'ko' ? '리그 순위' : 'League Position';
+            const wdlText = currentLang === 'ko' ? '승/무/패' : 'W/D/L';
+            const gpgText = currentLang === 'ko' ? '경기당 득점' : 'Goals/Game';
+            const gapgText = currentLang === 'ko' ? '경기당 실점' : 'Conceded/Game';
+            const formText = currentLang === 'ko' ? '최근 폼' : 'Recent Form';
+            const posText = currentLang === 'ko' ? '위' : '';
+            
+            return `
+                <div class="fotmob-card p-8 text-center animate-ui">
+                    <p class="text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Premier League • Round ${g.currentRound}/38</p>
+                    <div class="mb-8">
+                        <h3 class="text-3xl font-black italic uppercase tracking-tighter leading-tight">vs<br>${fixture.opponent}</h3>
+                        <p class="text-xs text-gray-500 mt-2">${fixture.isHome ? 'HOME' : 'AWAY'}</p>
+                    </div>
+                    <div class="flex gap-3 justify-center mb-8">
+                        <button onclick="playMatch()" class="bg-wolves text-black font-black px-10 py-4 rounded-full text-xs uppercase tracking-[0.2em] shadow-xl shadow-yellow-500/10 hover:scale-105 active:scale-95 transition-transform">${t('kickOff')}</button>
+                    </div>
+                    
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <p class="text-[10px] font-black text-gray-500 uppercase mb-4">${t('matchPreview')}</p>
+                        
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <div class="text-center">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('win')}</p>
+                                <p class="text-lg font-black text-green-400">${winProb}%</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('draw')}</p>
+                                <p class="text-lg font-black text-gray-400">${drawProb}%</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-[9px] text-gray-500 font-bold uppercase mb-1">${t('lose')}</p>
+                                <p class="text-lg font-black text-red-400">${loseProb}%</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2 text-[10px]">
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${h2hText}</span>
+                                <span class="font-black">${h2hResult}</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${leaguePositionText}</span>
+                                <div class="flex gap-6">
+                                    <span class="font-black wolves-gold">${currentLang === 'ko' ? wolvesRank + '위' : '#' + wolvesRank}</span>
+                                    <span class="text-gray-600">vs</span>
+                                    <span class="font-black">${currentLang === 'ko' ? oppRank + '위' : '#' + oppRank}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${wdlText}</span>
+                                <div class="flex gap-6">
+                                    <span class="font-black wolves-gold">${wolvesData ? `${wolvesData.won}/${wolvesData.drawn}/${wolvesData.lost}` : '-'}</span>
+                                    <span class="text-gray-600">vs</span>
+                                    <span class="font-black">${oppData ? `${oppData.won}/${oppData.drawn}/${oppData.lost}` : '-'}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${gpgText}</span>
+                                <div class="flex gap-6">
+                                    <span class="font-black wolves-gold">${wolvesGPG}</span>
+                                    <span class="text-gray-600">vs</span>
+                                    <span class="font-black">${oppGPG}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${gapgText}</span>
+                                <div class="flex gap-6">
+                                    <span class="font-black wolves-gold">${wolvesGAPG}</span>
+                                    <span class="text-gray-600">vs</span>
+                                    <span class="font-black">${oppGAPG}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-t border-white/10">
+                                <span class="text-gray-500 font-bold uppercase">${formText}</span>
+                                <div class="flex gap-6">
+                                    <div class="flex gap-1">
+                                        ${wolvesData && wolvesData.form.length > 0 ? wolvesData.form.slice(-5).map(f => `
+                                            <div class="w-4 h-4 rounded-sm flex items-center justify-center text-[7px] font-black ${
+                                                f === 'W' ? 'bg-green-600' : f === 'D' ? 'bg-gray-600' : 'bg-red-600'
+                                            }">${f}</div>
+                                        `).join('') : '<span class="text-gray-600">-</span>'}
+                                    </div>
+                                    <span class="text-gray-600">vs</span>
+                                    <div class="flex gap-1">
+                                        ${oppData && oppData.form.length > 0 ? oppData.form.slice(-5).map(f => `
+                                            <div class="w-4 h-4 rounded-sm flex items-center justify-center text-[7px] font-black ${
+                                                f === 'W' ? 'bg-green-600' : f === 'D' ? 'bg-gray-600' : 'bg-red-600'
+                                            }">${f}</div>
+                                        `).join('') : '<span class="text-gray-600">-</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTable() {
+            const tableEmptyText = currentLang === 'ko' 
+                ? '경기를 진행하면 리그 테이블이 표시됩니다'
+                : 'Play matches to see the league table';
+            if (state.leagueTable.length === 0) {
+                return `
+                    <div class="fotmob-card p-12 text-center animate-ui">
+                        <p class="text-gray-500 font-bold text-xs uppercase">${tableEmptyText}</p>
+                    </div>
+                `;
+            }
+
+            const wolvesData = state.leagueTable.find(t => t.team === "Wolves");
+            const wolvesRank = state.leagueTable.findIndex(t => t.team === "Wolves") + 1;
+
+            return `
+                <div class="fotmob-card p-5 animate-ui">
+                    <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
+                        <h3 class="text-sm font-black italic uppercase">Premier League Table</h3>
+                        <span class="text-xs font-black wolves-gold">${state.currentYear}/${state.currentYear + 1}</span>
+                    </div>
+
+                    <div class="bg-wolves/10 border border-wolves/30 rounded-lg p-3 mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl font-black wolves-gold w-6">${wolvesRank}</span>
+                            <div class="flex-grow">
+                                <p class="font-black text-sm">WOLVES</p>
+                                <p class="text-[9px] text-gray-400 font-bold uppercase">${wolvesData.points} pts • ${wolvesData.played} games</p>
+                            </div>
+                            <div class="flex gap-1">
+                                ${wolvesData.form.slice(-5).map(f => `
+                                    <div class="w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-black ${
+                                        f === 'W' ? 'bg-green-600' : f === 'D' ? 'bg-gray-600' : 'bg-red-600'
+                                    }">${f}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="scrollable-table">
+                        ${state.leagueTable.map((team, idx) => `
+                            <div class="flex items-center gap-2 py-2 px-2 rounded-lg ${team.team === 'Wolves' ? 'bg-wolves/5' : ''} hover:bg-white/5 transition-colors text-[10px]">
+                                <span class="font-black w-5 ${idx < 4 ? 'text-blue-400' : idx < 6 ? 'text-orange-400' : idx >= 17 ? 'text-red-400' : 'text-gray-500'}">${idx + 1}</span>
+                                <span class="team-name font-bold ${team.team === 'Wolves' ? 'text-wolves' : ''}">${team.team}</span>
+                                <div class="flex gap-2 font-bold text-gray-400 ml-auto">
+                                    <span class="w-5 text-center">${team.played}</span>
+                                    <span class="w-5 text-center text-green-400">${team.won}</span>
+                                    <span class="w-5 text-center text-gray-500">${team.drawn}</span>
+                                    <span class="w-5 text-center text-red-400">${team.lost}</span>
+                                    <span class="w-6 text-center">${team.gf}</span>
+                                    <span class="w-6 text-center">${team.ga}</span>
+                                    <span class="w-7 text-center ${team.gd >= 0 ? 'text-green-400' : 'text-red-400'}">${team.gd > 0 ? '+' : ''}${team.gd}</span>
+                                    <span class="w-6 text-center font-black text-white">${team.points}</span>
+                                </div>
+                                <div class="flex gap-0.5">
+                                    ${team.form.slice(-5).map(f => `
+                                        <div class="w-3 h-3 rounded-sm flex items-center justify-center text-[7px] font-black ${
+                                            f === 'W' ? 'bg-green-600' : f === 'D' ? 'bg-gray-600' : 'bg-red-600'
+                                        }">${f}</div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-white/10 flex gap-4 text-[9px] font-bold text-gray-500 uppercase">
+                        <div class="flex items-center gap-1"><div class="w-2 h-2 bg-blue-400 rounded-sm"></div>UCL</div>
+                        <div class="flex items-center gap-1"><div class="w-2 h-2 bg-orange-400 rounded-sm"></div>UEL</div>
+                        <div class="flex items-center gap-1"><div class="w-2 h-2 bg-red-400 rounded-sm"></div>REL</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="fotmob-card p-4 animate-ui">
+                        <h3 class="text-xs font-black italic uppercase mb-3">Top Scorers</h3>
+                        <div class="space-y-2">
+                            ${state.topScorers.map((scorer, idx) => `
+                                <div class="flex items-center gap-2 py-1.5 px-2 bg-white/5 rounded-lg text-[9px]">
+                                    <span class="font-black wolves-gold w-4">${idx + 1}</span>
+                                    <div class="flex-grow min-w-0">
+                                        <p class="font-bold truncate ${scorer.name === state.player.name ? 'text-wolves' : ''}">${scorer.name}</p>
+                                        <p class="text-[8px] text-gray-500 font-bold">${scorer.team}</p>
+                                    </div>
+                                    <span class="text-sm font-black text-green-400">${scorer.goals}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="fotmob-card p-4 animate-ui">
+                        <h3 class="text-xs font-black italic uppercase mb-3">Top Rated</h3>
+                        <div class="space-y-2">
+                            ${state.topRated.map((player, idx) => `
+                                <div class="flex items-center gap-2 py-1.5 px-2 bg-white/5 rounded-lg text-[9px]">
+                                    <span class="font-black wolves-gold w-4">${idx + 1}</span>
+                                    <div class="flex-grow min-w-0">
+                                        <p class="font-bold truncate ${player.name === state.player.name ? 'text-wolves' : ''}">${player.name}</p>
+                                        <p class="text-[8px] text-gray-500 font-bold">${player.team}</p>
+                                    </div>
+                                    <span class="text-sm font-black text-blue-400">${player.rating}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAllSeasonsModal() {
+            const leagueText = currentLang === 'ko' ? '리그' : 'League';
+            return `
+                <div class="modal-overlay animate-ui">
+                    <div class="bg-[#0a0a0a] w-full max-w-md rounded-2xl p-6 border border-white/10 shadow-2xl">
+                        <h3 class="text-lg font-black italic uppercase mb-6 text-center wolves-gold">${t('allSeasonsStats')}</h3>
+                        
+                        ${state.allSeasonsHistory.length === 0 ? `
+                            <p class="text-center text-gray-500 text-sm py-8">${t('noSeasonYet')}</p>
+                        ` : `
+                            <div class="space-y-1 max-h-96 overflow-y-auto">
+                                ${state.allSeasonsHistory.map((season, idx) => `
+                                    <div class="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2 border border-white/5 text-[10px]">
+                                        <span class="font-black wolves-gold w-16">${season.year}</span>
+                                        <span class="text-gray-500 w-12">${leagueText} #${season.leagueRank}</span>
+                                        <div class="flex gap-3 ml-auto">
+                                            <span class="text-green-400 font-black">${season.goals}G</span>
+                                            <span class="text-yellow-400 font-black">${season.assists}A</span>
+                                            <span class="text-blue-400 font-black">${season.avgRating}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                        
+                        <button onclick="state.showAllSeasons=false; render();" class="w-full bg-wolves text-black font-black py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-white transition-colors mt-6">${t('close')}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.onload = render;
+    </script>
+</body>
+</html>
